@@ -1,6 +1,8 @@
 {
   "name": "v1-pool",
-  "scripts": {},
+  "scripts": {
+    "test": "hardhat test"
+  },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
