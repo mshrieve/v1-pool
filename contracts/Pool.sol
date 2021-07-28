@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
+import 'hardhat/console.sol';
 
 contract Pool is ERC20 {
     ERC20 public immutable token;
@@ -46,8 +47,8 @@ contract Pool is ERC20 {
     }
 
     function addLiquidity(uint256 maxTokensIn) public payable {
-        require(maxTokensIn > 0);
-        require(msg.value > 0);
+        require(maxTokensIn > 0, 'maxTokensIn must be positive');
+        require(msg.value > 0, 'msg.value must be positive');
         // if sender is initializing liquidity
         if (tokenPool == 0) {
             ethPool = msg.value;
@@ -61,14 +62,18 @@ contract Pool is ERC20 {
 
         // transfer equal amount of token as eth
         uint256 tokenAmount = (tokenPool * msg.value) / ethPool;
-        require(tokenAmount < maxTokensIn);
+        require(
+            tokenAmount <= maxTokensIn,
+            'Pool: equal amount of token is less than maxTokensIn'
+        );
+        uint256 amountMinted = (totalSupply() * msg.value) / ethPool;
         // increase balances
         ethPool += msg.value;
         tokenPool += tokenAmount;
         // transfer tokenAmount
         token.transferFrom(msg.sender, address(this), tokenAmount);
         // mint liquidity tokens to sender
-        _mint(msg.sender, (totalSupply() * msg.value) / ethPool);
+        _mint(msg.sender, amountMinted);
         emit AddLiquidity(msg.sender, msg.value, tokenAmount);
     }
 
@@ -76,6 +81,9 @@ contract Pool is ERC20 {
         uint256 ethOut = (ethPool * amount) / totalSupply();
         uint256 tokensOut = (tokenPool * amount) / totalSupply();
 
+        // decrease ethPool and tokenPool
+        ethPool -= ethOut;
+        tokenPool -= tokensOut;
         // transfer tokens to sender
         token.transfer(msg.sender, tokensOut);
         // transfer eth to sender
@@ -94,8 +102,12 @@ contract Pool is ERC20 {
     }
 
     function ethToTokenTransfer(address recipient) public payable {
-        require(tokenPool > 0, 'pool has no liquidity');
-        require(msg.value > 0, 'no eth sent');
+        require(tokenPool > 0, 'Pool: pool has no liquidity');
+        require(msg.value > 0, 'Pool: msg.value must be positive');
+        require(
+            msg.value < ethPool,
+            'Pool: msg.value exceeds available liquidity'
+        );
         // compute invariant and fee
         uint256 k = ethPool * tokenPool;
         uint256 fee = (msg.value * feeRate) / eDecimals;
@@ -111,8 +123,12 @@ contract Pool is ERC20 {
     }
 
     function tokenToEthTransfer(uint256 tokensIn, address recipient) public {
-        require(tokenPool > 0, 'pool has no liquidity');
-        require(tokensIn > 0, 'no tokens sent');
+        require(tokenPool > 0, 'Pool: pool has no liquidity');
+        require(tokensIn > 0, 'Pool: tokensIn must be positive');
+        require(
+            tokensIn < tokenPool,
+            'Pool: tokensIn exceeds available liquidity'
+        );
         // compute invariant and fee
         uint256 k = (ethPool * tokenPool);
         uint256 fee = (tokensIn * feeRate) / eDecimals;
