@@ -1,130 +1,132 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
 contract Pool is ERC20 {
-  ERC20 immutable token;
+    ERC20 public immutable token;
 
-  uint256 private ethPool;
-  uint256 private tokenPool;
+    uint256 private ethPool;
+    uint256 private tokenPool;
 
-  uint256 constant eDecimals = 10**18;
-  uint256 constant feeRate = (3 * eDecimals) / 100;
+    uint256 constant eDecimals = 10**18;
+    uint256 constant feeRate = (3 * eDecimals) / 100;
 
-  event TokenPurchase(
-    address indexed buyer,
-    address indexed recipient,
-    uint256 ethSpent,
-    uint256 tokensReceived
-  );
-  event EthPurchase(
-    address indexed buyer,
-    address indexed recipient,
-    uint256 tokensSpent,
-    uint256 ethReceived
-  );
-  event AddLiquidity(
-    address indexed provider,
-    uint256 ethAmount,
-    uint256 tokenAmount
-  );
-  event RemoveLiquidity(
-    address indexed provider,
-    uint256 ethAmount,
-    uint256 tokenAmount
-  );
+    event TokenPurchase(
+        address indexed buyer,
+        address indexed recipient,
+        uint256 ethSpent,
+        uint256 tokensReceived
+    );
+    event EthPurchase(
+        address indexed buyer,
+        address indexed recipient,
+        uint256 tokensSpent,
+        uint256 ethReceived
+    );
+    event AddLiquidity(
+        address indexed provider,
+        uint256 ethAmount,
+        uint256 tokenAmount
+    );
+    event RemoveLiquidity(
+        address indexed provider,
+        uint256 ethAmount,
+        uint256 tokenAmount
+    );
 
-  // event TokenPurchase( uint256 received, uint256 spent, address account);
-  // event EthPurchase( uint256 received, uint256 spent, address account);
-  // event AddLiquidity( uint256 a, uint256 b, address account);
-  // event RemoveLiquidity( uint256)
+    // event TokenPurchase( uint256 received, uint256 spent, address account);
+    // event EthPurchase( uint256 received, uint256 spent, address account);
+    // event AddLiquidity( uint256 a, uint256 b, address account);
+    // event RemoveLiquidity( uint256)
 
-  constructor(address _token) ERC20("uniV1Pool", "V1") {
-    assert(_token != address(0));
-    token = ERC20(_token);
-  }
-
-  function addLiquidity(uint256 maxTokensIn) public payable {
-    require(maxTokensIn > 0);
-    require(msg.value > 0);
-    // if sender is initializing liquidity
-    if (tokenPool == 0) {
-      ethPool = msg.value;
-      tokenPool = maxTokensIn;
-      token.transferFrom(msg.sender, address(this), maxTokensIn);
-      emit AddLiquidity(msg.sender, msg.value, maxTokensIn);
-      return;
+    constructor(address _token) ERC20('uniV1Pool', 'V1') {
+        assert(_token != address(0));
+        token = ERC20(_token);
     }
 
-    // transfer equal amount of token as eth
-    uint256 tokenAmount = (tokenPool * msg.value) / ethPool;
-    require(tokenAmount < maxTokensIn);
-    // increase balances
-    ethPool += msg.value;
-    tokenPool += tokenAmount;
-    // transfer tokenAmount
-    token.transferFrom(msg.sender, address(this), tokenAmount);
-    // mint liquidity tokens to sender
-    _mint(msg.sender, (totalSupply() * msg.value) / ethPool);
-    emit AddLiquidity(msg.sender, msg.value, tokenAmount);
-  }
+    function addLiquidity(uint256 maxTokensIn) public payable {
+        require(maxTokensIn > 0);
+        require(msg.value > 0);
+        // if sender is initializing liquidity
+        if (tokenPool == 0) {
+            ethPool = msg.value;
+            tokenPool = maxTokensIn;
+            token.transferFrom(msg.sender, address(this), maxTokensIn);
+            // initially mint 100 liquidity tokens
+            _mint(msg.sender, 100 * eDecimals);
+            emit AddLiquidity(msg.sender, msg.value, maxTokensIn);
+            return;
+        }
 
-  function removeLiquidity(uint256 amount) public {
-    uint256 ethOut = (ethPool * amount) / totalSupply();
-    uint256 tokensOut = (tokenPool * amount) / totalSupply();
+        // transfer equal amount of token as eth
+        uint256 tokenAmount = (tokenPool * msg.value) / ethPool;
+        require(tokenAmount < maxTokensIn);
+        // increase balances
+        ethPool += msg.value;
+        tokenPool += tokenAmount;
+        // transfer tokenAmount
+        token.transferFrom(msg.sender, address(this), tokenAmount);
+        // mint liquidity tokens to sender
+        _mint(msg.sender, (totalSupply() * msg.value) / ethPool);
+        emit AddLiquidity(msg.sender, msg.value, tokenAmount);
+    }
 
-    // transfer tokens to sender
-    token.transfer(msg.sender, tokensOut);
-    // transfer eth to sender
-    payable(msg.sender).transfer(ethOut);
-    // burn liqiuidity tokens
-    _burn(msg.sender, amount);
-    emit RemoveLiquidity(msg.sender, ethOut, tokensOut);
-  }
+    function removeLiquidity(uint256 amount) public {
+        uint256 ethOut = (ethPool * amount) / totalSupply();
+        uint256 tokensOut = (tokenPool * amount) / totalSupply();
 
-  function ethToTokenSwap() public payable {
-    ethToTokenTransfer(msg.sender);
-  }
+        // transfer tokens to sender
+        token.transfer(msg.sender, tokensOut);
+        // transfer eth to sender
+        payable(msg.sender).transfer(ethOut);
+        // burn liqiuidity tokens
+        _burn(msg.sender, amount);
+        emit RemoveLiquidity(msg.sender, ethOut, tokensOut);
+    }
 
-  function tokenToEthSwap(uint256 tokensIn) public {
-    tokenToEthTransfer(tokensIn, msg.sender);
-  }
+    function ethToTokenSwap() public payable {
+        ethToTokenTransfer(msg.sender);
+    }
 
-  function ethToTokenTransfer(address recipient) public payable {
-    require(tokenPool > 0, "pool has no liquidity");
-    require(msg.value > 0, "no eth sent");
-    // compute invariant and fee
-    uint256 k = ethPool * tokenPool;
-    uint256 fee = (msg.value * feeRate) / eDecimals;
-    // ethPool increases by msg.value
-    ethPool += msg.value;
-    //  compute new token balance using new ethPool minus fee
-    uint256 tokensOut = tokenPool - (k / (ethPool - fee));
-    // update token balance
-    tokenPool -= tokensOut;
-    // transfer difference to recipient
-    token.transfer(recipient, tokensOut);
-    emit TokenPurchase(msg.sender, recipient, msg.value, tokensOut);
-  }
+    function tokenToEthSwap(uint256 tokensIn) public {
+        tokenToEthTransfer(tokensIn, msg.sender);
+    }
 
-  function tokenToEthTransfer(uint256 tokensIn, address recipient) public {
-    require(tokenPool > 0, "pool has no liquidity");
-    require(tokensIn > 0, "no tokens sent");
-    // compute invariant and fee
-    uint256 k = (ethPool * tokenPool);
-    uint256 fee = (tokensIn * feeRate) / eDecimals;
-    // tokenPool increases by tokensIn
-    tokenPool += tokensIn;
-    //  compute ethOut using new tokenPool minus fee
-    uint256 ethOut = ethPool - (k / (tokenPool - fee));
-    // update eth balance
-    ethPool -= ethOut;
-    // transfer tokensIn from sender
-    token.transferFrom(msg.sender, address(this), tokensIn);
-    // send ethOut to recipient
-    payable(recipient).transfer(ethOut);
-    // emit Transfer event
-    emit EthPurchase(msg.sender, recipient, tokensIn, ethOut);
-  }
+    function ethToTokenTransfer(address recipient) public payable {
+        require(tokenPool > 0, 'pool has no liquidity');
+        require(msg.value > 0, 'no eth sent');
+        // compute invariant and fee
+        uint256 k = ethPool * tokenPool;
+        uint256 fee = (msg.value * feeRate) / eDecimals;
+        // ethPool increases by msg.value
+        ethPool += msg.value;
+        //  compute new token balance using new ethPool minus fee
+        uint256 tokensOut = tokenPool - (k / (ethPool - fee));
+        // update token balance
+        tokenPool -= tokensOut;
+        // transfer difference to recipient
+        token.transfer(recipient, tokensOut);
+        emit TokenPurchase(msg.sender, recipient, msg.value, tokensOut);
+    }
+
+    function tokenToEthTransfer(uint256 tokensIn, address recipient) public {
+        require(tokenPool > 0, 'pool has no liquidity');
+        require(tokensIn > 0, 'no tokens sent');
+        // compute invariant and fee
+        uint256 k = (ethPool * tokenPool);
+        uint256 fee = (tokensIn * feeRate) / eDecimals;
+        // tokenPool increases by tokensIn
+        tokenPool += tokensIn;
+        //  compute ethOut using new tokenPool minus fee
+        uint256 ethOut = ethPool - (k / (tokenPool - fee));
+        // update eth balance
+        ethPool -= ethOut;
+        // transfer tokensIn from sender
+        token.transferFrom(msg.sender, address(this), tokensIn);
+        // send ethOut to recipient
+        payable(recipient).transfer(ethOut);
+        // emit Transfer event
+        emit EthPurchase(msg.sender, recipient, tokensIn, ethOut);
+    }
 }
