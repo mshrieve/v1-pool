@@ -21,9 +21,9 @@ const swapXforY = (x: BigNumber, y: BigNumber, dx: BigNumber) => {
   const k = x.mul(y)
   // compute fee
   const fee = dx.mul(feeRate).div(one)
+  // (x + dx - fee)(y - dy) = k
   // dy = y - k / (x + dx - fee)
-  const dy = y.sub(k.div(x.add(dx).sub(fee)))
-  return dy
+  return y.sub(k.div(x.add(dx).sub(fee)))
 }
 
 export { computeExpectedTokensReceived, computeExpectedEthReceived }
