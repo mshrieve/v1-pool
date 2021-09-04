@@ -8,9 +8,9 @@ contract Token is ERC20 {
     constructor() ERC20('token', 'TOK') {}
 
     /// @notice Simple minting function which will mint amount tokens to account
-    /// @param account The account to mint the tokens to
-    /// @param amount The amount of tokens to mint
-    function mint(address account, uint256 amount) public {
-        _mint(account, amount);
+    /// @param _account The account to mint the tokens to
+    /// @param _amount The amount of tokens to mint
+    function mint(address _account, uint256 _amount) public {
+        _mint(_account, _amount);
     }
 }

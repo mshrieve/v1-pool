@@ -50,19 +50,19 @@ contract Pool is ERC20 {
     /// @notice so that value(tokenAmount) == value(msg.value), where value() is
     /// @notice determined by the current price of the pool.
     /// @notice Always mints 100 liquidity tokens when adding liquidity to an empty pool
-    /// @notice and maxTokensIn will be transfered
-    /// @param maxTokensIn The maximum token amount to be transfered to the pool.
-    function addLiquidity(uint256 maxTokensIn) public payable {
-        require(maxTokensIn > 0, 'maxTokensIn must be positive');
+    /// @notice and _maxTokensIn will be transfered
+    /// @param _maxTokensIn The maximum token amount to be transfered to the pool.
+    function addLiquidity(uint256 _maxTokensIn) public payable {
+        require(_maxTokensIn > 0, '_maxTokensIn must be positive');
         require(msg.value > 0, 'msg.value must be positive');
         // if sender is initializing liquidity
         if (tokenPool == 0) {
             ethPool = msg.value;
-            tokenPool = maxTokensIn;
-            token.transferFrom(msg.sender, address(this), maxTokensIn);
+            tokenPool = _maxTokensIn;
+            token.transferFrom(msg.sender, address(this), _maxTokensIn);
             // initially mint 100 liquidity tokens
             _mint(msg.sender, 100 * one);
-            emit AddLiquidity(msg.sender, msg.value, maxTokensIn);
+            emit AddLiquidity(msg.sender, msg.value, _maxTokensIn);
             return;
         }
 
@@ -70,8 +70,8 @@ contract Pool is ERC20 {
         // transfer equal-valued amount of token as eth
         uint256 tokenAmount = (tokenPool * msg.value) / ethPool;
         require(
-            tokenAmount <= maxTokensIn,
-            'Pool: equal amount of token is greater than maxTokensIn'
+            tokenAmount <= _maxTokensIn,
+            'Pool: equal amount of token is greater than _maxTokensIn'
         );
         uint256 amountMinted = (totalSupply() * msg.value) / ethPool;
         // increase balances
@@ -86,18 +86,20 @@ contract Pool is ERC20 {
 
     /// @notice Remove liquidity from the pool by burning liquidity tokens,
     /// @notice and receiving equal-valued amounts of ETH and the ERC20 token
-    /// @param amount The amount of liquidity tokens to burn
+    /// @param _amount The amount of liquidity tokens to burn
+    /// @param _minEthToReceive The minimum amount of ETH to receive
+    /// @param _minTokensToReceive The minimum amount of tokens to receive
     function removeLiquidity(
-        uint256 amount,
-        uint256 minEthToReceive,
-        uint256 minTokensToReceive
+        uint256 _amount,
+        uint256 _minEthToReceive,
+        uint256 _minTokensToReceive
     ) public {
-        uint256 ethOut = (ethPool * amount) / totalSupply();
-        uint256 tokensOut = (tokenPool * amount) / totalSupply();
-        require(ethOut >= minEthToReceive, 'Pool: ethOut < minEthToReceive');
+        uint256 ethOut = (ethPool * _amount) / totalSupply();
+        uint256 tokensOut = (tokenPool * _amount) / totalSupply();
+        require(ethOut >= _minEthToReceive, 'Pool: ethOut < _minEthToReceive');
         require(
-            tokensOut >= minTokensToReceive,
-            'Pool: tokensOut < minTokensToReceive'
+            tokensOut >= _minTokensToReceive,
+            'Pool: tokensOut < _minTokensToReceive'
         );
         // decrease ethPool and tokenPool
         ethPool -= ethOut;
@@ -107,20 +109,20 @@ contract Pool is ERC20 {
         // transfer eth to sender
         payable(msg.sender).transfer(ethOut);
         // burn liqiuidity tokens
-        _burn(msg.sender, amount);
+        _burn(msg.sender, _amount);
         emit RemoveLiquidity(msg.sender, ethOut, tokensOut);
     }
 
     /// @notice Swaps ETH for the token, and transfers to the sender
-    /// @param minTokensToReceive The minimum amount of tokens to accept for the swap
-    function ethToTokenSwap(uint256 minTokensToReceive) public payable {
-        ethToTokenTransfer(minTokensToReceive, msg.sender);
+    /// @param _minTokensToReceive The minimum amount of tokens to accept for the swap
+    function ethToTokenSwap(uint256 _minTokensToReceive) public payable {
+        ethToTokenTransfer(_minTokensToReceive, msg.sender);
     }
 
     /// @notice Swaps ETH for the token, and transfers to recipient
-    /// @param minTokensToReceive The minimum amount of tokens to accept for the transfer
-    /// @param recipient The recipient of the tokens
-    function ethToTokenTransfer(uint256 minTokensToReceive, address recipient)
+    /// @param _minTokensToReceive The minimum amount of tokens to accept for the transfer
+    /// @param _recipient The recipient of the tokens
+    function ethToTokenTransfer(uint256 _minTokensToReceive, address _recipient)
         public
         payable
     {
@@ -134,48 +136,50 @@ contract Pool is ERC20 {
         //  compute new token balance using new ethPool minus fee
         uint256 tokensOut = tokenPool - (k / (ethPool - fee));
         require(
-            tokensOut >= minTokensToReceive,
-            'Pool: tokensOut < minTokensToReceive'
+            tokensOut >= _minTokensToReceive,
+            'Pool: tokensOut < _minTokensToReceive'
         );
         // update token balance
         tokenPool -= tokensOut;
-        // transfer difference to recipient
-        token.transfer(recipient, tokensOut);
-        emit TokenPurchase(msg.sender, recipient, msg.value, tokensOut);
+        // transfer difference to _recipient
+        token.transfer(_recipient, tokensOut);
+        emit TokenPurchase(msg.sender, _recipient, msg.value, tokensOut);
     }
 
     /// @notice Swaps the token for ETH, and transfers to the sender
-    /// @param tokensIn The amount of tokens to send to the pool
-    /// @param minEthToReceive The minimum amount of ETH to accept for the swap
-    function tokenToEthSwap(uint256 tokensIn, uint256 minEthToReceive) public {
-        tokenToEthTransfer(tokensIn, minEthToReceive, msg.sender);
+    /// @param _tokensIn The amount of tokens to send to the pool
+    /// @param _minEthToReceive The minimum amount of ETH to accept for the swap
+    function tokenToEthSwap(uint256 _tokensIn, uint256 _minEthToReceive)
+        public
+    {
+        tokenToEthTransfer(_tokensIn, _minEthToReceive, msg.sender);
     }
 
     /// @notice Swaps the token for ETH, and transfers to recipient
-    /// @param tokensIn The amount of tokens to send to the pool
-    /// @param minEthToReceive The minimum amount of ETH to accept for the swap
+    /// @param _tokensIn The amount of tokens to send to the pool
+    /// @param _minEthToReceive The minimum amount of ETH to accept for the swap
     /// @param recipient The recipient of the ETH
     function tokenToEthTransfer(
-        uint256 tokensIn,
-        uint256 minEthToReceive,
+        uint256 _tokensIn,
+        uint256 _minEthToReceive,
         address recipient
     ) public {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
-        require(tokensIn > 0, 'Pool: tokensIn must be positive');
+        require(_tokensIn > 0, 'Pool: _tokensIn must be positive');
         // compute invariant and fee
         uint256 k = (ethPool * tokenPool);
-        uint256 fee = (tokensIn * feeRate) / one;
-        // tokenPool increases by tokensIn
-        tokenPool += tokensIn;
+        uint256 fee = (_tokensIn * feeRate) / one;
+        // tokenPool increases by _tokensIn
+        tokenPool += _tokensIn;
         //  compute ethOut using new tokenPool minus fee
         uint256 ethOut = ethPool - (k / (tokenPool - fee));
-        require(ethOut >= minEthToReceive, 'Pool: ethOut < minEthToReceive');
+        require(ethOut >= _minEthToReceive, 'Pool: ethOut < _minEthToReceive');
         // update eth balance
         ethPool -= ethOut;
-        // transfer tokensIn from sender
-        token.transferFrom(msg.sender, address(this), tokensIn);
+        // transfer _tokensIn from sender
+        token.transferFrom(msg.sender, address(this), _tokensIn);
         // send ethOut to recipient
         payable(recipient).transfer(ethOut);
-        emit EthPurchase(msg.sender, recipient, tokensIn, ethOut);
+        emit EthPurchase(msg.sender, recipient, _tokensIn, ethOut);
     }
 }
