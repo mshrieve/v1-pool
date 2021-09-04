@@ -42,14 +42,6 @@ describe('Pool Eth Purchase', () => {
     )
   })
 
-  it('should not allow tokenToEthSwap with tokensIn greater than tokenPool', async () => {
-    const amount = eDecimals.mul(11).toString()
-
-    await expect(Pool.tokenToEthSwap(amount)).to.be.revertedWith(
-      'Pool: tokensIn exceeds available liquidity'
-    )
-  })
-
   it('should allow tokenToEthSwap with valid tokensIn', async () => {
     const amount = eDecimals.mul(1)
 

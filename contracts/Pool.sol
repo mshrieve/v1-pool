@@ -118,10 +118,6 @@ contract Pool is ERC20 {
     function ethToTokenTransfer(address recipient) public payable {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(msg.value > 0, 'Pool: msg.value must be positive');
-        require(
-            msg.value < ethPool,
-            'Pool: msg.value exceeds available liquidity'
-        );
         // compute invariant and fee
         uint256 k = ethPool * tokenPool;
         uint256 fee = (msg.value * feeRate) / eDecimals;
@@ -141,10 +137,6 @@ contract Pool is ERC20 {
     function tokenToEthTransfer(uint256 tokensIn, address recipient) public {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(tokensIn > 0, 'Pool: tokensIn must be positive');
-        require(
-            tokensIn < tokenPool,
-            'Pool: tokensIn exceeds available liquidity'
-        );
         // compute invariant and fee
         uint256 k = (ethPool * tokenPool);
         uint256 fee = (tokensIn * feeRate) / eDecimals;
