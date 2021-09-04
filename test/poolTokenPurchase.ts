@@ -44,7 +44,7 @@ describe('Pool Token Purchase', () => {
 
   it('should not allow ethToTokenSwap with tokens received less than minimum', async () => {
     await expect(Pool.ethToTokenSwap(one, { value: one })).to.be.revertedWith(
-      'Pool: tokensOut < minTokensToReceive'
+      'Pool: tokensOut < _minTokensToReceive'
     )
   })
 

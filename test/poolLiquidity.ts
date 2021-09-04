@@ -71,7 +71,7 @@ describe('Pool Liquidity Tokens', () => {
     expect(balance).to.equal(expectedBalance)
   })
 
-  it('should not allow account1 to add liquidity if maxTokensIn is too low', async () => {
+  it('should not allow account1 to add liquidity if _maxTokensIn is too low', async () => {
     const ethAmount = one.mul(10)
     const tokenAmount = one.mul(9)
 
@@ -82,11 +82,11 @@ describe('Pool Liquidity Tokens', () => {
         value: ethAmount
       })
     ).to.be.revertedWith(
-      'Pool: equal amount of token is greater than maxTokensIn'
+      'Pool: equal amount of token is greater than _maxTokensIn'
     )
   })
 
-  it('should allow account1 to add liquidity if maxTokensIn high enough', async () => {
+  it('should allow account1 to add liquidity if _maxTokensIn high enough', async () => {
     const amount = one.mul(10)
 
     await Token.connect(accounts[1]).approve(Pool.address, amount)
@@ -119,7 +119,7 @@ describe('Pool Liquidity Tokens', () => {
 
     await expect(
       Pool.connect(accounts[1]).removeLiquidity(amount, 0, amount.mul(20))
-    ).to.be.revertedWith('Pool: tokensOut < minTokensToReceive')
+    ).to.be.revertedWith('Pool: tokensOut < _minTokensToReceive')
   })
 
   it('should not allow removing liquidity if they receive less than the minimum eth', async () => {
@@ -127,7 +127,7 @@ describe('Pool Liquidity Tokens', () => {
 
     await expect(
       Pool.connect(accounts[1]).removeLiquidity(amount, amount.mul(20), 0)
-    ).to.be.revertedWith('Pool: ethOut < minEthToReceive')
+    ).to.be.revertedWith('Pool: ethOut < _minEthToReceive')
   })
 
   it('should allow account 1 to remove liquidity tokens', async () => {

@@ -36,13 +36,13 @@ describe('Pool Eth Purchase', () => {
 
   it('should not allow tokenToEthSwap with a zero tokensIn', async () => {
     await expect(Pool.tokenToEthSwap(0, 0)).to.be.revertedWith(
-      'Pool: tokensIn must be positive'
+      'Pool: _tokensIn must be positive'
     )
   })
 
   it('should not allow tokenToEthSwap with ETH received less than minimum', async () => {
     await expect(Pool.tokenToEthSwap(1, one)).to.be.revertedWith(
-      'Pool: ethOut < minEthToReceive'
+      'Pool: ethOut < _minEthToReceive'
     )
   })
 
