@@ -1,9 +1,9 @@
 import { ethers } from 'hardhat'
-import { Contract } from 'ethers'
-import BigNumber from 'bignumber.js'
+import { Contract, BigNumber } from 'ethers'
 import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { Interface } from 'ethers/lib/utils'
+import { computeExpectedEthReceived } from '../util'
 
 describe('Pool Eth Purchase', () => {
   let Token: Contract
@@ -13,7 +13,7 @@ describe('Pool Eth Purchase', () => {
 
   let accounts: SignerWithAddress[]
 
-  const eDecimals = new BigNumber(10).exponentiatedBy(18)
+  const eDecimals = BigNumber.from(10).pow(18)
 
   before(async () => {
     accounts = await ethers.getSigners()
@@ -28,10 +28,10 @@ describe('Pool Eth Purchase', () => {
     PoolInterface = PoolFactory.interface
     await Pool.deployed()
 
-    const hundred = eDecimals.times(100).toString()
+    const hundred = eDecimals.mul(100).toString()
     await Token.mint(accounts[0].address, hundred)
 
-    const ten = eDecimals.times(10).toString()
+    const ten = eDecimals.mul(10).toString()
     await Token.approve(Pool.address, ten)
     await Pool.addLiquidity(ten, { value: ten })
   })
@@ -43,7 +43,7 @@ describe('Pool Eth Purchase', () => {
   })
 
   it('should not allow tokenToEthSwap with tokensIn greater than tokenPool', async () => {
-    const amount = eDecimals.times(11).toString()
+    const amount = eDecimals.mul(11).toString()
 
     await expect(Pool.tokenToEthSwap(amount)).to.be.revertedWith(
       'Pool: tokensIn exceeds available liquidity'
@@ -51,7 +51,18 @@ describe('Pool Eth Purchase', () => {
   })
 
   it('should allow tokenToEthSwap with valid tokensIn', async () => {
-    const amount = eDecimals.times(1).toString()
+    const amount = eDecimals.mul(1)
+
+    // compute expected received amount
+    //
+    let ethPool = await Pool.ethPool()
+    let tokenPool = await Pool.tokenPool()
+    const expectedEthReceived = computeExpectedEthReceived(
+      ethPool,
+      tokenPool,
+      amount
+    )
+
     await Token.approve(Pool.address, amount)
 
     const ethBefore = await accounts[0].getBalance()
@@ -65,20 +76,31 @@ describe('Pool Eth Purchase', () => {
     const tokensSpent = ethPurchaseLogArgs.tokensSpent.toString()
     const ethReceived = ethPurchaseLogArgs.ethReceived.toString()
 
-    // i did not compute the actual amount expected ...
     expect(tokensSpent).to.equal(amount)
+    expect(ethReceived).to.equal(expectedEthReceived.toString())
     expect(ethReceived).to.equal(
       ethAfter.sub(ethBefore).add(transactionCost).toString()
     )
   })
 
   it('should allow tokenToEthTransfer', async () => {
-    const amount = eDecimals.times(1).toString()
+    const amount = eDecimals.mul(1)
+
+    // compute expected received amount
+    //
+    let ethPool = await Pool.ethPool()
+    let tokenPool = await Pool.tokenPool()
+    const expectedEthReceived = computeExpectedEthReceived(
+      ethPool,
+      tokenPool,
+      amount
+    )
+
     await Token.approve(Pool.address, amount)
 
     const ethBefore = await accounts[2].getBalance()
     const transaction = await Pool.tokenToEthTransfer(
-      amount,
+      amount.toString(),
       accounts[2].address
     )
     const receipt = await transaction.wait()
@@ -87,7 +109,7 @@ describe('Pool Eth Purchase', () => {
     const ethPurchaseLogArgs = PoolInterface.parseLog(receipt.logs[2]).args
     const ethReceived = ethPurchaseLogArgs.ethReceived.toString()
 
-    // i did not compute the actual amount expected ...
+    expect(ethReceived).to.equal(expectedEthReceived.toString())
     expect(ethReceived).to.equal(ethAfter.sub(ethBefore).toString())
   })
 })

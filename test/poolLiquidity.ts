@@ -84,7 +84,9 @@ describe('Pool Liquidity Tokens', () => {
       Pool.connect(accounts[1]).addLiquidity(tokenAmount, {
         value: ethAmount
       })
-    ).to.be.revertedWith('Pool: equal amount of token is less than maxTokensIn')
+    ).to.be.revertedWith(
+      'Pool: equal amount of token is greater than maxTokensIn'
+    )
   })
 
   it('should allow account1 to add liquidity if maxTokensIn high enough', async () => {

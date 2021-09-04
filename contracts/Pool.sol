@@ -2,13 +2,14 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
-import 'hardhat/console.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
+/// @title A simple solidity implementation of a single Uniswap v1–style pool
 contract Pool is ERC20 {
-    ERC20 public immutable token;
+    IERC20 public immutable token;
 
-    uint256 private ethPool;
-    uint256 private tokenPool;
+    uint256 public ethPool;
+    uint256 public tokenPool;
 
     uint256 constant eDecimals = 10**18;
     uint256 constant feeRate = (3 * eDecimals) / 100;
@@ -36,16 +37,21 @@ contract Pool is ERC20 {
         uint256 tokenAmount
     );
 
-    // event TokenPurchase( uint256 received, uint256 spent, address account);
-    // event EthPurchase( uint256 received, uint256 spent, address account);
-    // event AddLiquidity( uint256 a, uint256 b, address account);
-    // event RemoveLiquidity( uint256)
-
+    /// @notice Sets up a ERC20-ETH pool
+    /// @param _token The address of the ERC20 token
     constructor(address _token) ERC20('uniV1Pool', 'V1') {
-        assert(_token != address(0));
-        token = ERC20(_token);
+        require(_token != address(0));
+        token = IERC20(_token);
     }
 
+    /// @notice Add liquidity to the pool by sending equal-valued amounts
+    /// @notice of ETH and the ERC20 token
+    /// @notice The amount of token transfered is determined by the amount of ETH sent,
+    /// @notice so that value(tokenAmount) == value(msg.value), where value() is
+    /// @notice determined by the current price of the pool.
+    /// @notice Always mints 100 liquidity tokens when adding liquidity to an empty pool
+    /// @notice and maxTokensIn will be transfered
+    /// @param maxTokensIn The maximum token amount to be transfered to the pool.
     function addLiquidity(uint256 maxTokensIn) public payable {
         require(maxTokensIn > 0, 'maxTokensIn must be positive');
         require(msg.value > 0, 'msg.value must be positive');
@@ -60,11 +66,12 @@ contract Pool is ERC20 {
             return;
         }
 
-        // transfer equal amount of token as eth
+        // otherwise, there is already liquidity in the pool
+        // transfer equal-valued amount of token as eth
         uint256 tokenAmount = (tokenPool * msg.value) / ethPool;
         require(
             tokenAmount <= maxTokensIn,
-            'Pool: equal amount of token is less than maxTokensIn'
+            'Pool: equal amount of token is greater than maxTokensIn'
         );
         uint256 amountMinted = (totalSupply() * msg.value) / ethPool;
         // increase balances
@@ -77,6 +84,9 @@ contract Pool is ERC20 {
         emit AddLiquidity(msg.sender, msg.value, tokenAmount);
     }
 
+    /// @notice Remove liquidity from the pool by burning liquidity tokens,
+    /// @notice and receiving equal-valued amounts of ETH and the ERC20 token
+    /// @param amount The amount of liquidity tokens to burn
     function removeLiquidity(uint256 amount) public {
         uint256 ethOut = (ethPool * amount) / totalSupply();
         uint256 tokensOut = (tokenPool * amount) / totalSupply();
@@ -93,14 +103,18 @@ contract Pool is ERC20 {
         emit RemoveLiquidity(msg.sender, ethOut, tokensOut);
     }
 
+    /// @notice Swaps ETH for the token, and transfers to the sender
     function ethToTokenSwap() public payable {
         ethToTokenTransfer(msg.sender);
     }
 
+    /// @notice Swaps the token for ETH, and transfers to the sender
     function tokenToEthSwap(uint256 tokensIn) public {
         tokenToEthTransfer(tokensIn, msg.sender);
     }
 
+    /// @notice Swaps ETH for the token, and transfers to recipient
+    /// @param recipient The recipient of the tokens
     function ethToTokenTransfer(address recipient) public payable {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(msg.value > 0, 'Pool: msg.value must be positive');
@@ -122,6 +136,8 @@ contract Pool is ERC20 {
         emit TokenPurchase(msg.sender, recipient, msg.value, tokensOut);
     }
 
+    /// @notice Swaps the token for ETH, and transfers to recipient
+    /// @param recipient The recipient of the ETH
     function tokenToEthTransfer(uint256 tokensIn, address recipient) public {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(tokensIn > 0, 'Pool: tokensIn must be positive');
@@ -142,7 +158,6 @@ contract Pool is ERC20 {
         token.transferFrom(msg.sender, address(this), tokensIn);
         // send ethOut to recipient
         payable(recipient).transfer(ethOut);
-        // emit Transfer event
         emit EthPurchase(msg.sender, recipient, tokensIn, ethOut);
     }
 }
