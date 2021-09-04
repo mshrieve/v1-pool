@@ -1,5 +1,4 @@
-import { BigNumber } from '@ethersproject/bignumber'
-import { ethers } from 'hardhat'
+import { BigNumber } from 'ethers'
 
 const eDecimals = BigNumber.from(10).pow(18)
 const feeRate = BigNumber.from(10).pow(16).mul(3)
