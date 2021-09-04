@@ -11,8 +11,8 @@ contract Pool is ERC20 {
     uint256 public ethPool;
     uint256 public tokenPool;
 
-    uint256 constant eDecimals = 10**18;
-    uint256 constant feeRate = (3 * eDecimals) / 100;
+    uint256 constant one = 10**18;
+    uint256 constant feeRate = (3 * one) / 100;
 
     event TokenPurchase(
         address indexed buyer,
@@ -61,7 +61,7 @@ contract Pool is ERC20 {
             tokenPool = maxTokensIn;
             token.transferFrom(msg.sender, address(this), maxTokensIn);
             // initially mint 100 liquidity tokens
-            _mint(msg.sender, 100 * eDecimals);
+            _mint(msg.sender, 100 * one);
             emit AddLiquidity(msg.sender, msg.value, maxTokensIn);
             return;
         }
@@ -87,10 +87,18 @@ contract Pool is ERC20 {
     /// @notice Remove liquidity from the pool by burning liquidity tokens,
     /// @notice and receiving equal-valued amounts of ETH and the ERC20 token
     /// @param amount The amount of liquidity tokens to burn
-    function removeLiquidity(uint256 amount) public {
+    function removeLiquidity(
+        uint256 amount,
+        uint256 minEthToReceive,
+        uint256 minTokensToReceive
+    ) public {
         uint256 ethOut = (ethPool * amount) / totalSupply();
         uint256 tokensOut = (tokenPool * amount) / totalSupply();
-
+        require(ethOut >= minEthToReceive, 'Pool: ethOut < minEthToReceive');
+        require(
+            tokensOut >= minTokensToReceive,
+            'Pool: tokensOut < minTokensToReceive'
+        );
         // decrease ethPool and tokenPool
         ethPool -= ethOut;
         tokenPool -= tokensOut;
@@ -104,27 +112,31 @@ contract Pool is ERC20 {
     }
 
     /// @notice Swaps ETH for the token, and transfers to the sender
-    function ethToTokenSwap() public payable {
-        ethToTokenTransfer(msg.sender);
-    }
-
-    /// @notice Swaps the token for ETH, and transfers to the sender
-    function tokenToEthSwap(uint256 tokensIn) public {
-        tokenToEthTransfer(tokensIn, msg.sender);
+    /// @param minTokensToReceive The minimum amount of tokens to accept for the swap
+    function ethToTokenSwap(uint256 minTokensToReceive) public payable {
+        ethToTokenTransfer(minTokensToReceive, msg.sender);
     }
 
     /// @notice Swaps ETH for the token, and transfers to recipient
+    /// @param minTokensToReceive The minimum amount of tokens to accept for the transfer
     /// @param recipient The recipient of the tokens
-    function ethToTokenTransfer(address recipient) public payable {
+    function ethToTokenTransfer(uint256 minTokensToReceive, address recipient)
+        public
+        payable
+    {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(msg.value > 0, 'Pool: msg.value must be positive');
         // compute invariant and fee
         uint256 k = ethPool * tokenPool;
-        uint256 fee = (msg.value * feeRate) / eDecimals;
+        uint256 fee = (msg.value * feeRate) / one;
         // ethPool increases by msg.value
         ethPool += msg.value;
         //  compute new token balance using new ethPool minus fee
         uint256 tokensOut = tokenPool - (k / (ethPool - fee));
+        require(
+            tokensOut >= minTokensToReceive,
+            'Pool: tokensOut < minTokensToReceive'
+        );
         // update token balance
         tokenPool -= tokensOut;
         // transfer difference to recipient
@@ -132,18 +144,32 @@ contract Pool is ERC20 {
         emit TokenPurchase(msg.sender, recipient, msg.value, tokensOut);
     }
 
+    /// @notice Swaps the token for ETH, and transfers to the sender
+    /// @param tokensIn The amount of tokens to send to the pool
+    /// @param minEthToReceive The minimum amount of ETH to accept for the swap
+    function tokenToEthSwap(uint256 tokensIn, uint256 minEthToReceive) public {
+        tokenToEthTransfer(tokensIn, minEthToReceive, msg.sender);
+    }
+
     /// @notice Swaps the token for ETH, and transfers to recipient
+    /// @param tokensIn The amount of tokens to send to the pool
+    /// @param minEthToReceive The minimum amount of ETH to accept for the swap
     /// @param recipient The recipient of the ETH
-    function tokenToEthTransfer(uint256 tokensIn, address recipient) public {
+    function tokenToEthTransfer(
+        uint256 tokensIn,
+        uint256 minEthToReceive,
+        address recipient
+    ) public {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(tokensIn > 0, 'Pool: tokensIn must be positive');
         // compute invariant and fee
         uint256 k = (ethPool * tokenPool);
-        uint256 fee = (tokensIn * feeRate) / eDecimals;
+        uint256 fee = (tokensIn * feeRate) / one;
         // tokenPool increases by tokensIn
         tokenPool += tokensIn;
         //  compute ethOut using new tokenPool minus fee
         uint256 ethOut = ethPool - (k / (tokenPool - fee));
+        require(ethOut >= minEthToReceive, 'Pool: ethOut < minEthToReceive');
         // update eth balance
         ethPool -= ethOut;
         // transfer tokensIn from sender

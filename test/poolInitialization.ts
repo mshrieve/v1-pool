@@ -1,6 +1,5 @@
 import { ethers } from 'hardhat'
 import { Contract } from 'ethers'
-import BigNumber from 'bignumber.js'
 import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
@@ -9,8 +8,6 @@ describe('Pool Initialization', () => {
   let Token: Contract
 
   let accounts: SignerWithAddress[]
-
-  const eDecimals = new BigNumber(10).exponentiatedBy(18)
 
   before(async () => {
     accounts = await ethers.getSigners()
@@ -30,7 +27,7 @@ describe('Pool Initialization', () => {
   })
 
   it('should initially have no liquidity', async () => {
-    const supply = (await Pool.totalSupply()).toString()
+    const supply = await Pool.totalSupply()
     expect(supply).to.equal('0')
   })
 })

@@ -1,6 +1,5 @@
 import { ethers } from 'hardhat'
-import { Contract } from 'ethers'
-import BigNumber from 'bignumber.js'
+import { Contract, BigNumber } from 'ethers'
 import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
@@ -8,7 +7,7 @@ describe('Token', () => {
   let Token: Contract
 
   let accounts: SignerWithAddress[]
-  const eDecimals = new BigNumber(10).exponentiatedBy(18)
+  const one = BigNumber.from(10).pow(18)
 
   before(async () => {
     accounts = await ethers.getSigners()
@@ -19,7 +18,7 @@ describe('Token', () => {
   })
 
   it('should mint the first two accounts 100 tokens', async () => {
-    const amount = eDecimals.times(100).toString()
+    const amount = one.mul(100)
     await Token.mint(accounts[0].address, amount)
     await Token.mint(accounts[1].address, amount)
 
