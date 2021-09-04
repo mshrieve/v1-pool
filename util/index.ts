@@ -1,6 +1,6 @@
 import { BigNumber } from 'ethers'
 
-const eDecimals = BigNumber.from(10).pow(18)
+const one = BigNumber.from(10).pow(18)
 const feeRate = BigNumber.from(10).pow(16).mul(3)
 
 const computeExpectedEthReceived = (
@@ -19,7 +19,7 @@ const swapXforY = (x: BigNumber, y: BigNumber, amount: BigNumber) => {
   // compute invariant
   const k = x.mul(y)
   // feeRate = .03
-  const fee = amount.mul(feeRate).div(eDecimals)
+  const fee = amount.mul(feeRate).div(one)
   // update x
   x = x.add(amount)
   // yOut = y - k / (x - fee)
