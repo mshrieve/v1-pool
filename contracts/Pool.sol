@@ -44,13 +44,19 @@ contract Pool is ERC20 {
         token = IERC20(_token);
     }
 
-    /// @notice Add liquidity to the pool by sending equal-valued amounts
-    /// @notice of ETH and the ERC20 token
-    /// @notice The amount of token transfered is determined by the amount of ETH sent,
-    /// @notice so that value(tokenAmount) == value(msg.value), where value() is
-    /// @notice determined by the current price of the pool.
-    /// @notice Always mints 100 liquidity tokens when adding liquidity to an empty pool
-    /// @notice and _maxTokensIn will be transfered
+    /// @notice Returns the 'price' currently offered by the pool
+    /// @return price in ETH/token
+    function getPrice() public view returns (uint256) {
+        require(totalSupply() > 0, 'Pool: pool has no liquidity');
+        return (ethPool * one) / tokenPool;
+    }
+
+    /// @notice Add liquidity to the pool by sending equal-valued amounts of ETH and the ERC20 token
+    /// @dev The amount of token transfered is determined by the amount of ETH sent,
+    /// @dev so that value(tokenAmount) == value(msg.value), where value() is
+    /// @dev determined by the current price of the pool.
+    /// @dev Always mints 100 liquidity tokens when adding liquidity to an empty pool
+    /// @dev and _maxTokensIn will be transfered
     /// @param _maxTokensIn The maximum token amount to be transfered to the pool.
     function addLiquidity(uint256 _maxTokensIn) public payable {
         require(_maxTokensIn > 0, '_maxTokensIn must be positive');
@@ -158,11 +164,11 @@ contract Pool is ERC20 {
     /// @notice Swaps the token for ETH, and transfers to recipient
     /// @param _tokensIn The amount of tokens to send to the pool
     /// @param _minEthToReceive The minimum amount of ETH to accept for the swap
-    /// @param recipient The recipient of the ETH
+    /// @param _recipient The recipient of the ETH
     function tokenToEthTransfer(
         uint256 _tokensIn,
         uint256 _minEthToReceive,
-        address recipient
+        address _recipient
     ) public {
         require(tokenPool > 0, 'Pool: pool has no liquidity');
         require(_tokensIn > 0, 'Pool: _tokensIn must be positive');
@@ -179,7 +185,7 @@ contract Pool is ERC20 {
         // transfer _tokensIn from sender
         token.transferFrom(msg.sender, address(this), _tokensIn);
         // send ethOut to recipient
-        payable(recipient).transfer(ethOut);
-        emit EthPurchase(msg.sender, recipient, _tokensIn, ethOut);
+        payable(_recipient).transfer(ethOut);
+        emit EthPurchase(msg.sender, _recipient, _tokensIn, ethOut);
     }
 }
