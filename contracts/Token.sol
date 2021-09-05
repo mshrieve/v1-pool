@@ -7,7 +7,7 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 contract Token is ERC20 {
     constructor() ERC20('token', 'TOK') {}
 
-    /// @notice Simple minting function which will mint amount tokens to account
+    /// @notice Simple minting function which will mint _amount tokens to _account
     /// @param _account The account to mint the tokens to
     /// @param _amount The amount of tokens to mint
     function mint(address _account, uint256 _amount) public {
